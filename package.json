@@ -1,0 +1,18 @@
+{
+  "name": "neon-tank-arena",
+  "version": "3.0.0",
+  "description": "霓虹装甲 · 3D 坦克射击对战 — 单机 PvE + 多人在线（PvP 混战 / PvE 合作）",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "bots": "node scripts/bots.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#070a12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="screen-orientation" content="landscape">
+<title>霓虹装甲 · NEON TANK ARENA — 3D 坦克对战</title>
+<link rel="icon" href="favicon.png">
+<link rel="stylesheet" href="css/style.css?v=20240825m2">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 触屏操作层（参考零区冲突：摇杆 / 瞄准 / 开火分离） -->
+  <div id="touch-ui" class="hidden">
+    <div id="stick-zone"></div>
+    <div id="aim-zone"></div>
+    <div id="stick-base" class="hidden"><div id="stick-knob"></div></div>
+    <div id="touch-hint-left">摇杆移动</div>
+    <div id="touch-hint-right">拖动瞄准</div>
+    <button id="t-fire" class="tbtn t-fire" type="button" aria-label="开火">◎</button>
+    <button id="t-chat" class="tbtn t-chat hidden" type="button" aria-label="聊天">💬</button>
+    <button id="t-board" class="tbtn t-board hidden" type="button" aria-label="排行榜">🏆</button>
+  </div>
+
+  <!-- 战斗 HUD -->
+  <div id="hud" class="hidden">
+    <div id="mp-chip" class="hidden"></div>
+    <div id="respawn-tip" class="hidden">
+      <div class="rt-main">已 阵 亡</div>
+      <div class="rt-sub"></div>
+    </div>
+    <div id="hp-wrap">
+      <span id="hp-label">装甲</span>
+      <div id="hp-bar"><div id="hp-fill"></div></div>
+      <span id="hp-num">120</span>
+    </div>
+
+    <div id="wave-chip">第 <b id="wave-num">1</b> 波 · 残敌 <b id="enemy-left">0</b></div>
+
+    <div id="score-wrap">
+      <div id="score-chip">得分 <b id="score-num">0</b></div>
+      <div id="best-chip">最高 <b id="best-num">0</b></div>
+    </div>
+    <button id="btn-pause" class="icon-btn" type="button" aria-label="暂停">Ⅱ</button>
+
+    <div id="crosshair" class="ch-tpp">
+      <i class="ch-circle"></i>
+      <i class="ch-dot"></i>
+    </div>
+    <!-- 第一人称瞄准镜 -->
+    <div id="scope-overlay">
+      <div class="scope-vignette"></div>
+      <div class="scope-reticle">
+        <div class="scope-triangle"></div>
+        <div class="scope-vline"></div>
+        <div class="scope-hlines"></div>
+        <div class="scope-ticks"></div>
+      </div>
+    </div>
+    <div id="reload-bar"><div id="reload-fill"></div></div>
+    <div id="barrel-dot"></div>
+
+    <div id="radar-wrap"><canvas id="radar" width="156" height="156"></canvas></div>
+
+    <div id="killfeed"></div>
+    <div id="float-layer"></div>
+    <div id="banner" class="hidden"><div id="banner-main"></div><div id="banner-sub"></div></div>
+    <div id="dmg-vignette"></div>
+    <div id="heal-vignette"></div>
+  </div>
+
+  <!-- 开始界面 -->
+  <div id="screen-start" class="screen">
+    <div class="start-layout">
+      <!-- 左侧：联机房间 -->
+      <div class="room-panel">
+        <div class="room-head">
+          <span class="room-title">联机房间</span>
+          <button id="btn-refresh-rooms" class="room-refresh" type="button">↻</button>
+          <button id="btn-create-room" class="room-refresh create" type="button">＋</button>
+        </div>
+        <div id="room-list" class="room-list"></div>
+      </div>
+      <!-- 中央：主操作面板 -->
+      <div id="start-panel" class="panel start-panel">
+        <div class="start-head">
+          <span class="head-tag">TACTICAL // v1.0</span>
+          <div class="game-title">霓虹装甲</div>
+          <div class="game-subtitle">N E O N &nbsp; T A N K &nbsp; A R E N A</div>
+          <div class="title-line">
+            <span class="tl-seg"></span><span class="tl-diamond"></span><span class="tl-seg"></span>
+          </div>
+        </div>
+        <div class="online-count">在线 <b id="online-num">0</b> 人</div>
+
+        <div id="mp-status" class="mp-status"></div>
+
+        <!-- 房间大厅：进入房间后显示 -->
+        <div id="lobby-info" class="hidden">
+          <div class="lobby-title">房间大厅</div>
+          <div class="lobby-row"><span>当前房间</span><b id="lobby-room-name">官方房</b></div>
+          <div class="lobby-row"><span>游戏模式</span><b id="lobby-mode-name">混战</b></div>
+          <div class="lobby-row"><span>在场玩家</span><b id="lobby-player-count">0</b></div>
+          <div class="lobby-tip">点击「进入战斗」开始作战 · 或点「观战」旁观战斗</div>
+        </div>
+
+        <div id="player-info" class="player-info">
+          <input id="nick-input" class="nick-input" maxlength="12" placeholder="Linux DO 登录后自动填入昵称" disabled />
+          <div class="oauth-bar">
+            <button id="btn-nl-login" class="nl-login-btn" type="button">Linux DO 登录</button>
+            <div id="oauth-session" class="oauth-session hidden">
+              <span id="oauth-avatar" class="oauth-avatar">?</span>
+              <span id="oauth-status" class="oauth-status"></span>
+              <button id="btn-nl-logout" class="oauth-logout" type="button">退出</button>
+            </div>
+          </div>
+          <div id="oauth-tip" class="oauth-tip"></div>
+        </div>
+
+        <button id="btn-start" class="main-btn" type="button">
+          进入战斗
+        </button>
+
+        <div class="mode-row">
+          <button id="btn-mp-pvp" class="mode-btn" type="button">混战</button>
+          <button id="btn-sp" class="mode-btn" type="button">闯关</button>
+        </div>
+
+        <div id="home-claim" class="claim-card is-guest hidden">
+          <div class="claim-head">
+            <div class="claim-title">
+              <svg class="claim-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8M2 7h20v5H2zM12 22V7M7.5 7a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7M16.5 7a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7"/></svg>
+              每日礼包 <b>10 NL</b>
+            </div>
+            <span class="claim-slots">名额 <b id="nl-slots-left">20</b>/<span id="nl-slots-limit">20</span></span>
+          </div>
+          <div class="claim-progress">
+            <div class="claim-progress-meta">
+              <span id="claim-progress-label">今日击杀</span>
+              <span id="claim-progress-num">0/11</span>
+            </div>
+            <div class="claim-bar"><div id="claim-bar-fill" class="claim-bar-fill"></div></div>
+            <div id="claim-alt" class="claim-alt">也可单机通过第 5 波解锁</div>
+          </div>
+          <button id="btn-home-claim" class="claim-cta" type="button">登录领取</button>
+          <div id="home-claim-tip" class="home-claim-tip"></div>
+        </div>
+
+        <div class="secondary-btns">
+          <button id="btn-skin" class="sec-big-btn" type="button">装备库</button>
+          <button id="btn-watch" class="sec-big-btn" type="button">观战</button>
+          <button id="btn-about" class="sec-big-btn" type="button">关于</button>
+          <button id="btn-more" class="sec-big-btn" type="button">更多</button>
+        </div>
+
+        <div class="toggle-row">
+          <button id="tg-music-start" class="toggle-btn" type="button">音乐</button>
+          <button id="tg-sfx-start" class="toggle-btn" type="button">音效</button>
+        </div>
+
+        <div class="help" id="help-pc">
+          <span><b>WASD</b> 移动</span>
+          <span><b>鼠标</b> 瞄准</span>
+          <span><b>左键</b> 开火</span>
+          <span><b>V</b> 视角</span>
+          <span><b>Tab</b> 排行</span>
+        </div>
+        <div class="help hidden" id="help-touch">
+          <span><b>左摇杆</b> 移动</span>
+          <span><b>右侧拖动</b> 瞄准</span>
+          <span><b>◎</b> 开火</span>
+          <span><b>💬 / 🏆</b> 聊天 / 排行</span>
+        </div>
+        <div class="footer-tip">盘标回退测试中，鼠标视角可能突然飘移</div>
+      </div>
+      <!-- 右侧：战绩排行榜 / 房间玩家列表 -->
+      <div id="menu-board" class="menu-board">
+        <div class="mb-title">
+          <span class="mb-crown">🏆</span> 战绩排行
+        </div>
+        <div class="mb-tabs">
+          <button id="btn-board-all" class="mb-tab on" type="button">总榜</button>
+          <button id="btn-daily" class="mb-tab" type="button">今日</button>
+        </div>
+        <div id="mb-all-panel">
+          <div class="mb-header">
+            <span class="mb-h-rank">#</span>
+            <span class="mb-h-name">玩家</span>
+            <span class="mb-h-kills">击杀</span>
+            <span class="mb-h-deaths">死亡</span>
+            <span class="mb-h-boss">BOSS</span>
+            <span class="mb-h-streak">连杀</span>
+          </div>
+          <div id="mb-list" class="mb-list"></div>
+          <div class="mb-footer">按击杀排序 · 战绩跨局保存</div>
+        </div>
+        <div id="mb-daily-panel" class="hidden">
+          <div class="mb-header">
+            <span class="mb-h-rank">#</span>
+            <span class="mb-h-name">玩家</span>
+            <span class="mb-h-kills">击杀</span>
+            <span class="mb-h-wave">通关</span>
+          </div>
+          <div id="mb-daily-list" class="mb-list"></div>
+          <div id="mb-daily-me" class="mb-daily-me">
+            <div class="mb-daily-stats">
+              <span>今日击杀 <b id="daily-kills">0</b></span>
+              <span>第5波 <b id="daily-wave5">未通</b></span>
+            </div>
+            <div class="claim-bar mini"><div id="daily-bar-fill" class="claim-bar-fill"></div></div>
+            <button id="btn-daily-claim" class="daily-claim-btn hidden" type="button">登录领取</button>
+            <div id="daily-claim-tip" class="daily-claim-tip"></div>
+          </div>
+          <div class="mb-footer">按今日击杀排序 · 单机通关第 5 波会记录</div>
+        </div>
+      </div>
+      <!-- 房间玩家列表（进入房间后显示） -->
+      <div id="lobby-players" class="menu-board hidden">
+        <div class="mb-title">
+          <span class="mb-crown">👥</span> 当前玩家
+        </div>
+        <div id="lobby-player-list" class="mb-list"></div>
+        <div class="mb-footer">大厅等待 · 进入战斗 · 观战中</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 换装弹窗 -->
+  <div id="skin-modal" class="modal hidden">
+    <div class="modal-mask" data-close="1"></div>
+    <div class="modal-box skin-modal">
+      <button class="modal-close" data-close="1" type="button">✕</button>
+      <div class="modal-title">
+        <span class="modal-title-icon">🎨</span> 装备库
+      </div>
+      <!-- 分类标签 -->
+      <div class="skin-cats" id="skin-cats">
+        <button class="cat-btn active" data-cat="all">全部</button>
+        <button class="cat-btn" data-cat="body">车身</button>
+        <button class="cat-btn" data-cat="turret">炮塔</button>
+        <button class="cat-btn" data-cat="barrel">炮管</button>
+        <button class="cat-btn" data-cat="effect">武器光效</button>
+      </div>
+      <div class="skin-modal-body">
+        <div class="skin-preview-area">
+          <div class="preview-note">实时预览 · 悬停可试穿</div>
+          <canvas id="skin-preview-canvas"></canvas>
+          <div class="preview-name" id="preview-name">霓虹青</div>
+        </div>
+        <div class="skin-items-wrap">
+          <div id="skin-grid" class="skin-grid"></div>
+        </div>
+      </div>
+      <div class="skin-pager">
+        <button id="skin-prev" class="pager-btn" type="button">上一页</button>
+        <span id="skin-page-info" class="page-info">1 / 2</span>
+        <button id="skin-next" class="pager-btn" type="button">下一页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 房间弹窗（创建/加入） -->
+  <div id="room-modal" class="modal hidden">
+    <div class="modal-mask" data-close="1"></div>
+    <div class="modal-box room-modal">
+      <button class="modal-close" data-close="1" type="button">✕</button>
+      <div class="modal-title"><span class="modal-title-icon">🏠</span> <span id="room-modal-title">创建房间</span></div>
+      <div class="rm-field">
+        <label for="room-name-input">房间名称</label>
+        <input id="room-name-input" maxlength="20" autocomplete="off" placeholder="输入房间名称" />
+      </div>
+      <div class="rm-field">
+        <label for="room-pass-input">房间密码</label>
+        <input id="room-pass-input" maxlength="16" autocomplete="off" placeholder="可留空表示无密码" />
+      </div>
+      <div id="room-modal-err" class="rm-err hidden"></div>
+      <div class="rm-actions">
+        <button id="room-modal-cancel" class="rm-btn ghost" data-close="1" type="button">取消</button>
+        <button id="room-modal-ok" class="rm-btn primary" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 关于 -->
+  <div id="about-modal" class="modal hidden">
+    <div class="modal-mask" data-close="1"></div>
+    <div class="modal-box info-modal">
+      <button class="modal-close" data-close="1" type="button">✕</button>
+      <div class="modal-title">关于</div>
+      <div class="about-kicker">NEON TANK ARENA</div>
+      <div class="about-name">霓虹装甲</div>
+      <p class="about-lead">3D 坦克射击对战。单机闯关抵御 AI 装甲集群，或与朋友联机混战 / 合作清波。</p>
+      <div class="about-meta">
+        <span>作者 zard</span>
+        <span>战场 / 坦克 / 特效均为程序化生成</span>
+      </div>
+      <div class="about-contact">
+        邮箱
+        <a href="mailto:3345972086@qq.com">3345972086@qq.com</a>
+      </div>
+      <p class="about-foot">发现 bug 或想加功能，欢迎发邮件。Esc 或点空白处关闭。</p>
+    </div>
+  </div>
+
+  <!-- 更多 -->
+  <div id="more-modal" class="modal hidden">
+    <div class="modal-mask" data-close="1"></div>
+    <div class="modal-box info-modal">
+      <button class="modal-close" data-close="1" type="button">✕</button>
+      <div class="modal-title">更多</div>
+      <p class="about-lead">同作者的网页 FPS，打开即可开打。</p>
+      <a class="more-link" href="https://fps.zard.loc.cc" target="_blank" rel="noopener noreferrer">
+        <span class="more-link-name">零区冲突</span>
+        <span class="more-link-url">fps.zard.loc.cc</span>
+        <span class="more-link-go">前往</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 进入战场：选择载具 -->
+  <div id="screen-veh" class="screen hidden">
+    <div class="panel veh-enter-panel">
+      <div class="panel-title">选择载具</div>
+      <div class="veh-enter-tip">点选后立即进入战场</div>
+      <div class="veh-picker-row enter">
+        <button type="button" class="veh-card on" data-veh="grunt">
+          <b>猎手</b><span>均衡</span><i>120 装甲 · 标准火力</i>
+        </button>
+        <button type="button" class="veh-card" data-veh="scout">
+          <b>疾袭</b><span>机动</span><i>80 装甲 · 高速灵活</i>
+        </button>
+        <button type="button" class="veh-card" data-veh="heavy">
+          <b>重装</b><span>重甲</span><i>200 装甲 · 高伤害</i>
+        </button>
+      </div>
+      <button id="btn-veh-cancel" class="mid-btn" type="button">返回</button>
+    </div>
+  </div>
+
+  <!-- 暂停界面 -->
+  <div id="screen-pause" class="screen hidden">
+    <div class="panel">
+      <div class="panel-title">已 暂 停</div>
+      <button id="btn-resume" class="big-btn" type="button">继续战斗</button>
+      <button id="btn-restart-pause" class="mid-btn" type="button">重新开始</button>
+      <button id="btn-menu-pause" class="mid-btn" type="button">返回主菜单</button>
+      <button id="btn-pause-landscape" class="mid-btn mobile-only" type="button">进入全屏</button>
+      <div class="toggle-row">
+        <button id="tg-music-pause" class="toggle-btn" type="button">背景音乐：开</button>
+        <button id="tg-sfx-pause" class="toggle-btn" type="button">音效：开</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算界面 -->
+  <div id="screen-over" class="screen hidden">
+    <div class="panel">
+      <div class="panel-title over-title">战 斗 结 束</div>
+      <div id="new-record" class="new-record hidden">★ 新纪录 ★</div>
+      <div class="stats">
+        <div class="stat"><span>本局得分</span><b id="over-score">0</b></div>
+        <div class="stat"><span>击毁敌军</span><b id="over-kills">0</b></div>
+        <div class="stat"><span>抵达波次</span><b id="over-wave">0</b></div>
+        <div class="stat"><span>存活时间</span><b id="over-time">0:00</b></div>
+      </div>
+      <div class="best-line">历史最高 <b id="over-best">0</b> 分</div>
+      <button id="btn-restart-over" class="big-btn" type="button">再 战 一 局</button>
+      <button id="btn-menu-over" class="mid-btn" type="button">返回主菜单</button>
+    </div>
+  </div>
+</div>
+
+<!-- 联机 HUD：聊天 + 计分板 -->
+  <div id="chat-box" class="hidden">
+    <div id="chat-list"></div>
+    <div id="chat-input-row" class="hidden">
+      <input id="chat-input" maxlength="80" placeholder="输入消息，回车发送 · /mode pvp|pve 切换模式 · /reset 清比分" />
+      <button id="chat-send" type="button">发送</button>
+    </div>
+  </div>
+  <div id="score-board" class="hidden">
+    <div class="sb-title">战场排行 <span id="sb-mode"></span></div>
+    <table id="sb-table"></table>
+    <div class="sb-hint">按住 Tab 查看 · 联机中实时更新</div>
+  </div>
+
+  <!-- 移动端竖屏提示：请旋转至横屏 -->
+  <div id="rotateHint" class="hidden">
+    <div class="rotate-card">
+      <div class="rotate-icon" aria-hidden="true">📱</div>
+      <div class="rotate-title">请旋转至横屏</div>
+      <div class="rotate-sub">为保证最佳战斗视野，请横屏游玩</div>
+      <div class="rotate-tip">⚠️ 建议先点击下方「进入全屏」再旋转手机；若仍无法旋转，请到控制中心关闭「竖屏锁定 / 方向锁定」</div>
+      <button id="btnRotateLandscape" class="rotate-btn" type="button">↻ 进入全屏</button>
+      <div id="rotateStatus" class="rotate-status"></div>
+    </div>
+  </div>
+
+<script src="lib/three.min.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/models.js?v=20240825y"></script>
+<script src="js/world.js"></script>
+<script src="js/effects.js?v=20240824l2"></script>
+<script src="js/net.js?v=20240825m8"></script>
+<script src="js/game.js?v=20240825m9"></script>
+</body>
+</html>
